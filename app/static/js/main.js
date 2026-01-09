@@ -3,7 +3,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const senderNameInput = document.getElementById('sender-name');
     const smtpEmailInput = document.getElementById('smtp-email');
     const smtpPasswordInput = document.getElementById('smtp-password');
-    const testSmtpBtn = document.getElementById('test-smtp-btn');
     
     const spreadsheetUpload = document.getElementById('spreadsheet-upload');
     const spreadsheetFilename = document.getElementById('spreadsheet-filename');
@@ -113,11 +112,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return checkboxDiv;
     };
 
-    testSmtpBtn.addEventListener('click', () => safeApiCall(async () => {
-        const data = await apiCall('/test-connection', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: smtpEmailInput.value, password: smtpPasswordInput.value, sender_name: senderNameInput.value }) });
-        showPopup('Sucesso', data.success);
-    }));
-
     spreadsheetUpload.addEventListener('change', () => safeApiCall(async () => {
         const file = spreadsheetUpload.files[0];
         if (!file) return;
@@ -186,6 +180,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const checkedFilterValues = Array.from(filterCheckboxes.querySelectorAll('input:checked')).map(cb => cb.value);
         
         const settings = {
+            smtp_credentials: {
+                email: smtpEmailInput.value,
+                password: smtpPasswordInput.value,
+                sender_name: senderNameInput.value
+            },
             column_mapping: { email_col: emailColSelect.value },
             filter_settings: { column: filterColumnSelect.value, values: checkedFilterValues },
             email_template: {

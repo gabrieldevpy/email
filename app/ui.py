@@ -46,26 +46,6 @@ def status():
     """Fornece o estado atual da campanha para o front-end."""
     return jsonify(sending_state.get_status_dict())
 
-@ui_blueprint.route('/test-connection', methods=['POST'])
-def test_connection():
-    """Testa as credenciais SMTP e as salva na sessão."""
-    data = request.get_json() or {}
-    try:
-        email, password, sender_name = data.get('email'), data.get('password'), data.get('sender_name', '')
-        if not email or not password: raise ValueError("E-mail e senha são obrigatórios.")
-        server_addr, port = get_smtp_server_details(email)
-        with smtplib.SMTP(server_addr, port) as server:
-            server.starttls()
-            server.login(email, password)
-        session['smtp_credentials'] = {
-            'email': email, 'password': password, 
-            'server': server_addr, 'port': port, 'sender_name': sender_name
-        }
-        session.modified = True
-        return jsonify({'success': 'Conexão SMTP bem-sucedida!'})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
 @ui_blueprint.route('/upload', methods=['POST'])
 def upload_spreadsheet():
     """Faz o upload da planilha e extrai os nomes das colunas."""
@@ -118,10 +98,41 @@ def upload_attachments():
 def save_settings():
     """Salva todas as configurações da campanha na sessão."""
     data = request.get_json() or {}
+    
+    # Validação e salvamento das credenciais SMTP
+    smtp_data = data.get('smtp_credentials', {})
+    email = smtp_data.get('email')
+    password = smtp_data.get('password')
+    sender_name = smtp_data.get('sender_name')
+
+    if not email or not password:
+        return jsonify({'error': 'As credenciais SMTP (e-mail e senha) são obrigatórias.'}), 400
+
+    try:
+        # Testa a conexão antes de salvar para garantir que as credenciais são válidas
+        server_addr, port = get_smtp_server_details(email)
+        with smtplib.SMTP(server_addr, port) as server:
+            server.starttls()
+            server.login(email, password)
+        
+        # Salva na sessão se o teste for bem-sucedido
+        session['smtp_credentials'] = {
+            'email': email,
+            'password': password,
+            'server': server_addr,
+            'port': port,
+            'sender_name': sender_name
+        }
+    except Exception as e:
+        # Se o teste falhar, retorna um erro claro
+        return jsonify({'error': f'Falha na conexão SMTP: {e}'}), 400
+
+    # Salva o resto das configurações
     session['column_mapping'] = data.get('column_mapping')
     session['email_template'] = data.get('email_template')
     session['timing_settings'] = data.get('timing_settings')
     session['filter_settings'] = data.get('filter_settings')
+    
     session.modified = True
     return jsonify({'success': 'Configurações salvas com sucesso!'})
 

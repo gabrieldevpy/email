@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assistente de Envio | Automação Inteligente</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Assistente de Envio Automatizado</h1>
+
+        <!-- Card 1: Configuração SMTP -->
+        <div class="card">
+            <h2>1. Conecte sua Conta de E-mail</h2>
+            <p class="explanation">Use uma "senha de aplicativo". Suas credenciais são salvas apenas nesta sessão.</p>
+            <form id="smtp-form">
+                <label for="email">Seu E-mail:</label>
+                <input type="email" id="email" name="email" placeholder="seu.email@provedor.com" required>
+                <label for="password">Senha de Aplicativo:</label>
+                <input type="password" id="password" name="password" required>
+                <button type="button" id="test-conn-btn" class="btn btn-primary">Testar Conexão</button>
+            </form>
+        </div>
+
+        <!-- Card 2: Planilha e Mapeamento -->
+        <div class="card">
+            <h2>2. Configure os Destinatários e Assunto</h2>
+            <p class="explanation">Envie a planilha (.xlsx, .csv). A primeira linha deve ser o cabeçalho.</p>
+            <form id="upload-form">
+                <label for="spreadsheet">Arquivo da Planilha:</label>
+                <input type="file" id="spreadsheet" name="spreadsheet" accept=".xlsx, .csv">
+                <button type="button" id="upload-button" class="btn btn-primary">Carregar Planilha</button>
+            </form>
+            <hr style="margin: 2rem 0;">
+            <p class="explanation">Associe as colunas da sua planilha aos campos do e-mail.</p>
+            <div id="mapping-form">
+                <label for="recipient_name">Coluna com o Nome do Destinatário:</label>
+                <select id="recipient_name" name="recipient_name"></select>
+                <label for="recipient_email">Coluna com o E-mail do Destinatário:</label>
+                <select id="recipient_email" name="recipient_email"></select>
+                <label for="ticket_value">Coluna com o Valor Customizado (para usar `{{valor}}` no corpo):</label>
+                <select id="ticket_value" name="ticket_value"></select>
+                 <hr style="margin: 2rem 0;">
+                <p class="explanation"><strong>Mapeamento Avançado de Assunto (Opcional)</strong></p>
+                <p class="explanation">Selecione até duas colunas para criar um assunto dinâmico, como "Vaga - Empresa".</p>
+                <label for="subject_col_1">Coluna 1 para o Assunto:</label>
+                <select id="subject_col_1" name="subject_col_1"></select>
+                <label for="subject_col_2">Coluna 2 para o Assunto (opcional):</label>
+                <select id="subject_col_2" name="subject_col_2"></select>
+                <p id="subject-preview" class="explanation" style="margin-top: 1rem; font-weight: bold;"></p>
+            </div>
+        </div>
+
+        <!-- Card 3: Anexos e Metadados -->
+        <div class="card">
+            <h2>3. Anexe os Arquivos Obrigatórios</h2>
+            <p class="explanation">Anexe seu currículo e carta de apresentação (PDF, DOC, DOCX).</p>
+            <form id="attachments-form">
+                <div class="file-upload-wrapper">
+                    <label for="resume-file">📄 Currículo (Resume):</label>
+                    <input type="file" id="resume-file" name="resume" accept=".pdf,.doc,.docx" class="file-input">
+                    <span id="resume-filename" class="filename"></span>
+                </div>
+                <div class="file-upload-wrapper">
+                    <label for="cover-letter-file">📄 Carta de Apresentação (Cover Letter):</label>
+                    <input type="file" id="cover-letter-file" name="cover_letter" accept=".pdf,.doc,.docx" class="file-input">
+                    <span id="cover-letter-filename" class="filename"></span>
+                </div>
+                <div class="metadata-option" style="margin-top: 1rem;">
+                    <input type="checkbox" id="clean-metadata" name="clean_metadata">
+                    <label for="clean-metadata"><strong>Remover Metadados dos Arquivos</strong> (Recomendado)</label>
+                </div>
+            </form>
+        </div>
+
+        <!-- Card 4: Template do E-mail -->
+        <div class="card">
+            <h2>4. Crie o Modelo de E-mail</h2>
+            <p class="explanation">Se não usar o mapeamento de assunto acima, este assunto será usado. Use <strong>{{nome}}</strong> e <strong>{{valor}}</strong> para personalizar.</p>
+            <form id="template-form">
+                <label for="subject">Assunto Padrão (Fallback):</label>
+                <input type="text" id="subject" name="subject" placeholder="Ex: Candidatura para Vaga de Desenvolvedor">
+                <label for="email_body">Corpo do E-mail:</label>
+                <textarea id="email_body" name="email_body" rows="10" placeholder="Olá, &#10;&#10;Escrevo para me candidatar à vaga. Seguem meus anexos.&#10;&#10;Atenciosamente,&#10;{{nome}}"></textarea>
+            </form>
+        </div>
+        
+        <!-- Card 5: Configuração de Envio -->
+        <div class="card">
+            <h2>5. Configure o Disparo</h2>
+            <form id="timing-form">
+                <p class="explanation">Controle o tempo entre cada e-mail para evitar bloqueios.</p>
+                <div class="timing-inputs">
+                    <div>
+                        <label for="min-interval">Intervalo Mínimo (segundos):</label>
+                        <input type="number" id="min-interval" name="min_interval" value="5" min="1">
+                    </div>
+                    <div>
+                        <label for="max-interval">Intervalo Máximo (segundos):</label>
+                        <input type="number" id="max-interval" name="max_interval" value="15" min="1">
+                    </div>
+                </div>
+                <div class="metadata-option">
+                     <input type="checkbox" id="random-interval" name="random_interval" checked>
+                    <label for="random-interval"><strong>Variar tempo de envio automaticamente</strong>.</label>
+                </div>
+            </form>
+        </div>
+
+        <!-- Card 6: Ação e Progresso -->
+        <div class="card">
+            <h2>6. Inicie, Controle e Monitore o Envio</h2>
+            <p class="explanation">Tudo pronto! Dispare e acompanhe o progresso em tempo real.</p>
+            
+            <div id="progress-area" style="display: none;">
+                <p id="status-text" style="font-weight: bold; text-align: center; margin-bottom: 1rem;">Status: Ocioso</p>
+                <div class="progress-bar-container">
+                    <div id="progress-bar" class="progress-bar"></div>
+                </div>
+                <div class="progress-details">
+                    <span id="sent-count">Enviados: 0</span>
+                    <span id="total-count">Total: 0</span>
+                    <span id="remaining-count">Restantes: 0</span>
+                </div>
+                <p id="progress-of-total" style="text-align: center; font-weight: bold; margin-top: 0.5rem;">0 / 0</p>
+            </div>
+
+            <div id="controls" class="btn-group">
+                <button type="button" id="start-btn" class="btn btn-primary">Disparar Agora</button>
+                <button type="button" id="pause-btn" class="btn btn-secondary" style="display:none;">Pause</button>
+                <button type="button" id="resume-btn" class="btn btn-primary" style="display:none;">Continuar</button>
+                <button type="button" id="stop-btn" class="btn btn-danger" style="display:none;">Stop</button>
+            </div>
+
+             <h3 style="margin-top: 2rem;">Logs de Atividade</h3>
+            <textarea id="send_logs" rows="10" readonly></textarea>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

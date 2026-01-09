@@ -1,0 +1,252 @@
+/* Paleta de Cores e Variáveis Globais */
+:root {
+    --primary-color: #007BFF;
+    --primary-hover: #0056b3;
+    --secondary-color: #6c757d;
+    --background-color: #f4f7f6;
+    --card-background: #ffffff;
+    --border-color: #dee2e6;
+    --success-color: #28a745;
+    --error-color: #dc3545;
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --border-radius: 8px;
+}
+
+/* Reset e Estilo Base */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-family);
+    background-color: var(--background-color);
+    margin: 0;
+    padding: 1rem;
+    color: #333;
+    line-height: 1.6;
+}
+
+/* Container Principal */
+.container {
+    max-width: 800px;
+    margin: 1rem auto;
+}
+
+h1 {
+    color: var(--primary-color);
+    text-align: center;
+    margin-bottom: 2.5rem;
+    font-weight: 600;
+}
+
+/* Estilo dos Cards */
+.card {
+    background: var(--card-background);
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    margin-bottom: 2rem;
+    padding: 2rem 2.5rem;
+    border: 1px solid var(--border-color);
+    transition: box-shadow 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+}
+
+.card h2 {
+    margin-top: 0;
+    color: var(--primary-color);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+/* Estilos de Formulário */
+form {
+    display: flex;
+    flex-direction: column;
+}
+
+label {
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+input[type="email"],
+input[type="password"],
+input[type="text"],
+input[type="number"],
+input[type="datetime-local"],
+select,
+textarea {
+    width: 100%;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    font-size: 1rem;
+    font-family: var(--font-family);
+    background-color: #fff;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+textarea {
+    resize: vertical;
+    min-height: 120px;
+}
+
+/* Estilo dos Botões */
+.btn {
+    padding: 0.8rem 1.5rem;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+    align-self: flex-start;
+    background-color: var(--secondary-color);
+    color: white;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-hover);
+}
+
+.btn:disabled {
+    background-color: #adb5bd;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.btn-group {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+/* Textos de Explicação */
+.explanation {
+    font-size: 0.9rem;
+    color: var(--secondary-color);
+    margin-top: -0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Seção de Anexos Customizada */
+.file-upload-wrapper {
+    margin-bottom: 1rem;
+}
+.file-upload-wrapper .file-input {
+    display: none; /* Esconde o input default */
+}
+.file-upload-wrapper label {
+    display: inline-block;
+    padding: 0.6rem 1.2rem;
+    background-color: #e9ecef;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.file-upload-wrapper label:hover {
+    background-color: #dde1e4;
+}
+.filename {
+    margin-left: 1rem;
+    font-style: italic;
+    color: var(--secondary-color);
+}
+
+/* Checkbox de Metadados */
+.metadata-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+.metadata-option input[type="checkbox"] {
+    width: 1.2em; /* Tamanho do checkbox */
+    height: 1.2em;
+    margin: 0;
+}
+.metadata-option label {
+    margin-bottom: 0; /* Remove margem default da label */
+    font-weight: normal;
+}
+.metadata-option .explanation {
+    margin: 0;
+    padding-left: 2.2rem; /* Alinha com o texto acima do checkbox */
+}
+
+/* Configuração de Tempo */
+.timing-inputs {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+}
+.timing-inputs > div {
+    flex: 1;
+}
+
+/* Barra de Progresso e Agendamento */
+progress {
+    width: 100%;
+    height: 12px;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+}
+#progress-text {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+#schedule-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+/* Logs */
+textarea#send_logs {
+    background: #212529;
+    color: #f8f9fa;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85rem;
+}
+
+/* Media Queries para Responsividade */
+@media (max-width: 600px) {
+    body { padding: 0.5rem; }
+    .container { padding: 0; }
+    .card { padding: 1.5rem; }
+    h1 { font-size: 1.8rem; margin-bottom: 1.5rem; }
+    h2 { font-size: 1.3rem; }
+    .timing-inputs { flex-direction: column; gap: 1rem; }
+    .btn-group { flex-direction: column; align-items: stretch; }
+    .btn { align-self: auto; width: 100%; }
+    #schedule-controls { flex-direction: column; align-items: stretch; }
+}

@@ -3,141 +3,184 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assistente de Envio | Automação Inteligente</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <title>Disparador de E-mails em Massa</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('ui.static', filename='css/style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>Assistente de Envio Automatizado</h1>
-
-        <!-- Card 1: Configuração SMTP -->
-        <div class="card">
-            <h2>1. Conecte sua Conta de E-mail</h2>
-            <p class="explanation">Use uma "senha de aplicativo". Suas credenciais são salvas apenas nesta sessão.</p>
-            <form id="smtp-form">
-                <label for="email">Seu E-mail:</label>
-                <input type="email" id="email" name="email" placeholder="seu.email@provedor.com" required>
-                <label for="password">Senha de Aplicativo:</label>
-                <input type="password" id="password" name="password" required>
-                <button type="button" id="test-conn-btn" class="btn btn-primary">Testar Conexão</button>
-            </form>
-        </div>
-
-        <!-- Card 2: Planilha e Mapeamento -->
-        <div class="card">
-            <h2>2. Configure os Destinatários e Assunto</h2>
-            <p class="explanation">Envie a planilha (.xlsx, .csv). A primeira linha deve ser o cabeçalho.</p>
-            <form id="upload-form">
-                <label for="spreadsheet">Arquivo da Planilha:</label>
-                <input type="file" id="spreadsheet" name="spreadsheet" accept=".xlsx, .csv">
-                <button type="button" id="upload-button" class="btn btn-primary">Carregar Planilha</button>
-            </form>
-            <hr style="margin: 2rem 0;">
-            <p class="explanation">Associe as colunas da sua planilha aos campos do e-mail.</p>
-            <div id="mapping-form">
-                <label for="recipient_name">Coluna com o Nome do Destinatário:</label>
-                <select id="recipient_name" name="recipient_name"></select>
-                <label for="recipient_email">Coluna com o E-mail do Destinatário:</label>
-                <select id="recipient_email" name="recipient_email"></select>
-                <label for="ticket_value">Coluna com o Valor Customizado (para usar `{{valor}}` no corpo):</label>
-                <select id="ticket_value" name="ticket_value"></select>
-                 <hr style="margin: 2rem 0;">
-                <p class="explanation"><strong>Mapeamento Avançado de Assunto (Opcional)</strong></p>
-                <p class="explanation">Selecione até duas colunas para criar um assunto dinâmico, como "Vaga - Empresa".</p>
-                <label for="subject_col_1">Coluna 1 para o Assunto:</label>
-                <select id="subject_col_1" name="subject_col_1"></select>
-                <label for="subject_col_2">Coluna 2 para o Assunto (opcional):</label>
-                <select id="subject_col_2" name="subject_col_2"></select>
-                <p id="subject-preview" class="explanation" style="margin-top: 1rem; font-weight: bold;"></p>
+    <div class="page-container">
+        <!-- PAINEL DE CONTROLE LATERAL -->
+        <aside class="control-panel">
+            <div class="logo">
+                <i class="fas fa-rocket"></i>
+                <h2>Disparador</h2>
             </div>
-        </div>
 
-        <!-- Card 3: Anexos e Metadados -->
-        <div class="card">
-            <h2>3. Anexe os Arquivos Obrigatórios</h2>
-            <p class="explanation">Anexe seu currículo e carta de apresentação (PDF, DOC, DOCX).</p>
-            <form id="attachments-form">
-                <div class="file-upload-wrapper">
-                    <label for="resume-file">📄 Currículo (Resume):</label>
-                    <input type="file" id="resume-file" name="resume" accept=".pdf,.doc,.docx" class="file-input">
-                    <span id="resume-filename" class="filename"></span>
-                </div>
-                <div class="file-upload-wrapper">
-                    <label for="cover-letter-file">📄 Carta de Apresentação (Cover Letter):</label>
-                    <input type="file" id="cover-letter-file" name="cover_letter" accept=".pdf,.doc,.docx" class="file-input">
-                    <span id="cover-letter-filename" class="filename"></span>
-                </div>
-                <div class="metadata-option" style="margin-top: 1rem;">
-                    <input type="checkbox" id="clean-metadata" name="clean_metadata">
-                    <label for="clean-metadata"><strong>Remover Metadados dos Arquivos</strong> (Recomendado)</label>
-                </div>
-            </form>
-        </div>
-
-        <!-- Card 4: Template do E-mail -->
-        <div class="card">
-            <h2>4. Crie o Modelo de E-mail</h2>
-            <p class="explanation">Se não usar o mapeamento de assunto acima, este assunto será usado. Use <strong>{{nome}}</strong> e <strong>{{valor}}</strong> para personalizar.</p>
-            <form id="template-form">
-                <label for="subject">Assunto Padrão (Fallback):</label>
-                <input type="text" id="subject" name="subject" placeholder="Ex: Candidatura para Vaga de Desenvolvedor">
-                <label for="email_body">Corpo do E-mail:</label>
-                <textarea id="email_body" name="email_body" rows="10" placeholder="Olá, &#10;&#10;Escrevo para me candidatar à vaga. Seguem meus anexos.&#10;&#10;Atenciosamente,&#10;{{nome}}"></textarea>
-            </form>
-        </div>
-        
-        <!-- Card 5: Configuração de Envio -->
-        <div class="card">
-            <h2>5. Configure o Disparo</h2>
-            <form id="timing-form">
-                <p class="explanation">Controle o tempo entre cada e-mail para evitar bloqueios.</p>
-                <div class="timing-inputs">
-                    <div>
-                        <label for="min-interval">Intervalo Mínimo (segundos):</label>
-                        <input type="number" id="min-interval" name="min_interval" value="5" min="1">
-                    </div>
-                    <div>
-                        <label for="max-interval">Intervalo Máximo (segundos):</label>
-                        <input type="number" id="max-interval" name="max_interval" value="15" min="1">
-                    </div>
-                </div>
-                <div class="metadata-option">
-                     <input type="checkbox" id="random-interval" name="random_interval" checked>
-                    <label for="random-interval"><strong>Variar tempo de envio automaticamente</strong>.</label>
-                </div>
-            </form>
-        </div>
-
-        <!-- Card 6: Ação e Progresso -->
-        <div class="card">
-            <h2>6. Inicie, Controle e Monitore o Envio</h2>
-            <p class="explanation">Tudo pronto! Dispare e acompanhe o progresso em tempo real.</p>
-            
-            <div id="progress-area" style="display: none;">
-                <p id="status-text" style="font-weight: bold; text-align: center; margin-bottom: 1rem;">Status: Ocioso</p>
+            <div class="card">
+                <h3><i class="fas fa-cogs"></i>Status da Campanha</h3>
+                <p><strong>Estado:</strong> <span id="status-text">IDLE</span></p>
+                <p><strong>Progresso:</strong> <span id="sent-count">0</span> / <span id="total-count">0</span></p>
                 <div class="progress-bar-container">
                     <div id="progress-bar" class="progress-bar"></div>
                 </div>
-                <div class="progress-details">
-                    <span id="sent-count">Enviados: 0</span>
-                    <span id="total-count">Total: 0</span>
-                    <span id="remaining-count">Restantes: 0</span>
+                <div id="next-send-progress-container">
+                    <p class="progress-text">Próximo envio em <span id="next-send-countdown">0</span>s</p>
+                    <div class="progress-bar-container">
+                        <div id="next-send-progress-bar" class="progress-bar"></div>
+                    </div>
                 </div>
-                <p id="progress-of-total" style="text-align: center; font-weight: bold; margin-top: 0.5rem;">0 / 0</p>
+                <div class="global-controls">
+                    <button id="start-btn" class="btn"><i class="fas fa-play"></i> Iniciar Disparo</button>
+                    <button id="pause-btn" class="btn" disabled><i class="fas fa-pause"></i> Pausar</button>
+                    <button id="resume-btn" class="btn" disabled><i class="fas fa-play-circle"></i> Retomar</button>
+                    <button id="stop-btn" class="btn" disabled><i class="fas fa-stop"></i> Parar</button>
+                </div>
+                <p id="error-message" class="error-text"></p>
             </div>
+        </aside>
 
-            <div id="controls" class="btn-group">
-                <button type="button" id="start-btn" class="btn btn-primary">Disparar Agora</button>
-                <button type="button" id="pause-btn" class="btn btn-secondary" style="display:none;">Pause</button>
-                <button type="button" id="resume-btn" class="btn btn-primary" style="display:none;">Continuar</button>
-                <button type="button" id="stop-btn" class="btn btn-danger" style="display:none;">Stop</button>
+        <!-- CONTEÚDO PRINCIPAL -->
+        <main class="main-content">
+            <header>
+                <h1>Dispare e-mails em massa com facilidade</h1>
+                <p class="subtitle">Siga os passos abaixo para configurar e iniciar sua campanha de e-mails.</p>
+            </header>
+
+            <div class="steps-grid">
+                <!-- PASSO 1: SMTP -->
+                <div class="card step-card">
+                    <div class="step-header">
+                        <span class="step-number">1</span>
+                        <h4>Configure seu SMTP</h4>
+                    </div>
+                    <div class="input-group">
+                        <label for="sender-name">Seu Nome (Opcional)</label>
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="sender-name" placeholder="Ex: João da Silva">
+                    </div>
+                    <div class="input-group">
+                        <label for="smtp-email">Seu E-mail (Gmail, Outlook, etc.)</label>
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="smtp-email" placeholder="seu.email@exemplo.com">
+                    </div>
+                    <div class="input-group">
+                        <label for="smtp-password">Senha de App</label>
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="smtp-password" placeholder="Cole sua senha de app aqui">
+                    </div>
+                    <button id="test-smtp-btn" class="btn btn-secondary">Testar Conexão</button>
+                </div>
+
+                <!-- PASSO 2: Planilha e Filtros -->
+                <div class="card step-card">
+                    <div class="step-header">
+                        <span class="step-number">2</span>
+                        <h4>Faça upload da sua lista</h4>
+                    </div>
+                    <label for="spreadsheet-upload" class="btn btn-light"><i class="fas fa-file-excel"></i> Escolher Planilha (.csv, .xlsx)</label>
+                    <input type="file" id="spreadsheet-upload" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel">
+                    <span id="spreadsheet-filename" class="file-input">Nenhuma planilha selecionada</span>
+
+                    <div id="column-mapping-area" style="display: none;">
+                        <div class="column-mapper">
+                            <label for="email-col">E-mail do Destinatário:</label>
+                            <select id="email-col"></select>
+                        </div>
+                        <div class="column-mapper">
+                            <label for="filter-column-select">Filtrar por Coluna:</label>
+                            <select id="filter-column-select"></select>
+                        </div>
+                        <div id="filter-values-area" style="display: none;">
+                            <div class="input-group search-bar">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="filter-search" placeholder="Buscar valores...">
+                            </div>
+                            <div id="filter-checkboxes"></div>
+                            <button id="show-more-filters-btn" class="btn-link">Mostrar mais</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PASSO 3: Corpo do E-mail -->
+                <div class="card step-card">
+                    <div class="step-header">
+                        <span class="step-number">3</span>
+                        <h4>Crie sua Mensagem</h4>
+                    </div>
+                    <div class="input-group">
+                        <label>Assunto (use colunas como variáveis)</label>
+                        <div class="subject-group">
+                            <select id="subject-col-1"></select>
+                            <span>+</span>
+                            <select id="subject-col-2"></select>
+                        </div>
+                    </div>
+                    <!-- GRUPO DE CORPOS DE E-MAIL DINÂMICOS -->
+                    <div class="input-group">
+                        <label>Corpos do E-mail (use {coluna} para variáveis)</label>
+                        <div id="email-body-list">
+                            <textarea class="email-body-input" placeholder="Ex: Olá {nome}, vimos que você tem interesse em {interesse}..."></textarea>
+                        </div>
+                        <button id="add-email-body-btn" class="btn-link">+ Adicionar Outro Corpo de E-mail</button>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="randomize-body-checkbox">
+                        <label for="randomize-body-checkbox">Randomizar corpos de e-mail</label>
+                    </div>
+                    <hr style="margin: 1.5rem 0;">
+                    <div class="input-group">
+                        <label for="resume-upload" class="btn btn-light btn-sm"><i class="fas fa-paperclip"></i> Anexar Currículo</label>
+                        <input type="file" id="resume-upload">
+                        <span id="resume-filename">Nenhum</span>
+                    </div>
+                    <div class="input-group">
+                        <label for="cover-letter-upload" class="btn btn-light btn-sm"><i class="fas fa-file-alt"></i> Anexar Carta de Apresentação</label>
+                        <input type="file" id="cover-letter-upload">
+                        <span id="cover-letter-filename">Nenhum</span>
+                    </div>
+                    <!-- OPÇÃO DE LIMPAR METADADOS -->
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="clean-metadata-checkbox">
+                        <label for="clean-metadata-checkbox">Limpar metadados dos anexos</label>
+                    </div>
+                     <button id="upload-attachments-btn" class="btn btn-secondary">Processar Anexos</button>
+                </div>
+
+                <!-- PASSO 4: Envio -->
+                <div class="card step-card">
+                     <div class="step-header">
+                        <span class="step-number">4</span>
+                        <h4>Configure o Disparo</h4>
+                    </div>
+                    <div class="timing-inputs">
+                        <div class="input-group">
+                            <label for="min-interval">Intervalo Mínimo (em segundos)</label>
+                            <input type="number" id="min-interval" value="5">
+                        </div>
+                        <div class="input-group">
+                            <label for="max-interval">Intervalo Máximo (em segundos)</label>
+                            <input type="number" id="max-interval" value="15">
+                        </div>
+                    </div>
+                    <button id="save-settings-btn" class="btn btn-secondary">Salvar Configurações</button>
+                </div>
             </div>
+        </main>
+    </div>
 
-             <h3 style="margin-top: 2rem;">Logs de Atividade</h3>
-            <textarea id="send_logs" rows="10" readonly></textarea>
+    <!-- POP-UP DE SUCESSO/ERRO -->
+    <div id="success-popup" class="popup-overlay" style="display: none;">
+        <div class="popup-content">
+            <i id="popup-icon" class="fas fa-check-circle popup-icon"></i>
+            <h3 id="popup-title">Sucesso</h3>
+            <p id="popup-message">Sua ação foi concluída.</p>
+            <button id="popup-close-btn" class="btn btn-secondary">Fechar</button>
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('ui.static', filename='js/main.js') }}"></script>
 </body>
 </html>

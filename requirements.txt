@@ -1,5 +1,5 @@
-flask
+Flask
 pandas
 openpyxl
-pypdf
-python-docx
+python-dotenv
+piexif

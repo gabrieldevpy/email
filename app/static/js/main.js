@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const initialVisibleFilters = 10;
     let statusInterval, nextSendInterval;
 
-    // --- FUNÇÕES ESSENCIAIS RESTAURADAS ---
+    // --- FUNÇÕES DE POP-UP E API ---
     const showPopup = (title, message, isError = false) => {
         const popup = document.getElementById('success-popup');
         document.getElementById('popup-title').textContent = title;
@@ -91,10 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const safeApiCall = async (callback) => {
-        try { await callback(); } catch (error) { /* Erro já exibido pelo apiCall */ }
-    };
-
     // --- Lógica da UI e Event Listeners ---
 
     const renderFilterCheckboxes = (values) => {
@@ -112,29 +108,33 @@ document.addEventListener('DOMContentLoaded', () => {
         return checkboxDiv;
     };
 
-    spreadsheetUpload.addEventListener('change', () => safeApiCall(async () => {
+    spreadsheetUpload.addEventListener('change', async () => {
         const file = spreadsheetUpload.files[0];
         if (!file) return;
         spreadsheetFilename.textContent = file.name;
         const formData = new FormData();
         formData.append('spreadsheet', file);
-        const data = await apiCall('/upload', { method: 'POST', body: formData });
-        const columns = data.columns || [];
-        [emailColSelect, filterColumnSelect, subjectCol1Select, subjectCol2Select].forEach(select => {
-            select.innerHTML = '<option value="">-- Selecione --</option>';
-            columns.forEach(col => select.add(new Option(col, col)));
-        });
-        columnMappingArea.style.display = 'block';
-    }));
+        try {
+            const data = await apiCall('/upload', { method: 'POST', body: formData });
+            const columns = data.columns || [];
+            [emailColSelect, filterColumnSelect, subjectCol1Select, subjectCol2Select].forEach(select => {
+                select.innerHTML = '<option value="">-- Selecione --</option>';
+                columns.forEach(col => select.add(new Option(col, col)));
+            });
+            columnMappingArea.style.display = 'block';
+        } catch(e) { /* erro já tratado */}
+    });
 
-    filterColumnSelect.addEventListener('change', () => safeApiCall(async () => {
+    filterColumnSelect.addEventListener('change', async () => {
         const selectedColumn = filterColumnSelect.value;
         filterValuesArea.style.display = selectedColumn ? 'block' : 'none';
         if (!selectedColumn) return;
-        const data = await apiCall('/get-filter-values', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ column: selectedColumn }) });
-        allFilterValues = data.values || [];
-        renderFilterCheckboxes(allFilterValues);
-    }));
+        try {
+            const data = await apiCall('/get-filter-values', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ column: selectedColumn }) });
+            allFilterValues = data.values || [];
+            renderFilterCheckboxes(allFilterValues);
+        } catch(e) { /* erro já tratado */}
+    });
     
     filterSearchInput.addEventListener('input', (e) => {
         const searchTerm = e.target.value.toLowerCase();
@@ -160,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
     resumeUpload.addEventListener('change', () => { resumeFilename.textContent = resumeUpload.files[0] ? resumeUpload.files[0].name : 'Nenhum'; });
     coverLetterUpload.addEventListener('change', () => { coverLetterFilename.textContent = coverLetterUpload.files[0] ? coverLetterUpload.files[0].name : 'Nenhum'; });
 
-    uploadAttachmentsBtn.addEventListener('click', () => safeApiCall(async () => {
+    uploadAttachmentsBtn.addEventListener('click', async () => {
         const formData = new FormData();
         if (resumeUpload.files[0]) formData.append('resume', resumeUpload.files[0]);
         if (coverLetterUpload.files[0]) formData.append('cover_letter', coverLetterUpload.files[0]);
@@ -170,11 +170,13 @@ document.addEventListener('DOMContentLoaded', () => {
             showPopup('Aviso', 'Nenhum anexo selecionado para processar.');
             return;
         }
-        const data = await apiCall('/upload-attachments', { method: 'POST', body: formData });
-        showPopup('Sucesso', data.success);
-    }));
+        try {
+            const data = await apiCall('/upload-attachments', { method: 'POST', body: formData });
+            showPopup('Sucesso', data.success);
+        } catch(e) { /* erro já tratado */}
+    });
 
-    saveSettingsBtn.addEventListener('click', () => safeApiCall(async () => {
+    saveSettingsBtn.addEventListener('click', async () => {
         const emailBodyInputs = emailBodyList.querySelectorAll('.email-body-input');
         const emailBodies = Array.from(emailBodyInputs).map(input => input.value).filter(Boolean);
         const checkedFilterValues = Array.from(filterCheckboxes.querySelectorAll('input:checked')).map(cb => cb.value);
@@ -195,23 +197,28 @@ document.addEventListener('DOMContentLoaded', () => {
             timing_settings: { min_interval: parseInt(minIntervalInput.value), max_interval: parseInt(maxIntervalInput.value) },
         };
         
-        const data = await apiCall('/save-settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) });
-        showPopup('Configurações Salvas', data.success);
-    }));
+        try {
+            const data = await apiCall('/save-settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) });
+            showPopup('Configurações Salvas', data.success);
+        } catch(e) { /* erro já tratado */}
+    });
 
+    // --- Ações de Controle ---
     const setupControlAction = (btn, action) => {
-        btn.addEventListener('click', () => safeApiCall(async () => {
-            const data = await apiCall(`/${action}-sending`, { method: 'POST' });
-            showPopup('Sucesso', data.success);
-            pollStatus(); // Reinicia o polling imediatamente após a ação
-        }));
+        btn.addEventListener('click', async () => {
+            try {
+                const data = await apiCall(`/${action}-sending`, { method: 'POST' });
+                showPopup('Sucesso', data.success);
+                pollStatus(); // Reinicia o polling
+            } catch(e) { /* erro já tratado */}
+        });
     };
     setupControlAction(startBtn, 'start');
     setupControlAction(pauseBtn, 'pause');
     setupControlAction(resumeBtn, 'resume');
     setupControlAction(stopBtn, 'stop');
 
-    // --- Polling e Lógica de Estado ---
+    // --- Polling de Status ---
     const updateUIwithState = (state) => {
         statusText.textContent = state.status;
         sentCount.textContent = state.sent;
@@ -223,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isRunning = state.status === 'RUNNING';
         const isPaused = state.status === 'PAUSED';
         const isStarting = state.status === 'STARTING';
-        const isIdle = state.status === 'IDLE' || state.status === 'FINISHED' || state.status === 'STOPPED' || state.status === 'ERROR';
+        const isIdle = ['IDLE', 'FINISHED', 'STOPPED', 'ERROR'].includes(state.status);
 
         startBtn.disabled = !isIdle;
         pauseBtn.disabled = !isRunning;
@@ -235,11 +242,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             nextSendContainer.style.display = 'none';
             if (nextSendInterval) clearInterval(nextSendInterval);
-        }
-        
-        if (isIdle && statusInterval) {
-            // Para o polling se a tarefa estiver concluída ou parada
-            // clearInterval(statusInterval);
         }
     };
 
@@ -265,20 +267,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (statusInterval) clearInterval(statusInterval);
         statusInterval = setInterval(async () => {
             try {
-                // Não usa safeApiCall para não mostrar pop-up em cada falha de polling
                 const response = await fetch('/status');
+                if (!response.ok) return; // Não mostra erro, apenas para de fazer polling
                 const state = await response.json();
                 updateUIwithState(state);
             } catch (error) {
-                // Silenciosamente para o polling em caso de erro de rede
                 if (statusInterval) clearInterval(statusInterval);
             }
         }, 1500);
     };
     
-    safeApiCall(async () => {
-        const initialState = await apiCall('/status');
-        updateUIwithState(initialState);
-        pollStatus();
-    });
+    // --- Inicialização ---
+    (async () => {
+        try {
+            const initialState = await apiCall('/status');
+            updateUIwithState(initialState);
+            pollStatus();
+        } catch (e) { /* erro já tratado */ }
+    })();
 });

@@ -86,7 +86,6 @@ def upload_attachments():
             file.save(filepath)
             saved_paths.append(filepath)
     
-    # Estrutura correta para o services.py
     session['attachments'] = {
         'files': saved_paths, 
         'clean_metadata': request.form.get('clean_metadata') == 'true'
@@ -99,7 +98,6 @@ def save_settings():
     """Salva todas as configurações da campanha na sessão."""
     data = request.get_json() or {}
     
-    # Validação e salvamento das credenciais SMTP
     smtp_data = data.get('smtp_credentials', {})
     email = smtp_data.get('email')
     password = smtp_data.get('password')
@@ -109,13 +107,11 @@ def save_settings():
         return jsonify({'error': 'As credenciais SMTP (e-mail e senha) são obrigatórias.'}), 400
 
     try:
-        # Testa a conexão antes de salvar para garantir que as credenciais são válidas
         server_addr, port = get_smtp_server_details(email)
         with smtplib.SMTP(server_addr, port) as server:
             server.starttls()
             server.login(email, password)
         
-        # Salva na sessão se o teste for bem-sucedido
         session['smtp_credentials'] = {
             'email': email,
             'password': password,
@@ -124,10 +120,8 @@ def save_settings():
             'sender_name': sender_name
         }
     except Exception as e:
-        # Se o teste falhar, retorna um erro claro
         return jsonify({'error': f'Falha na conexão SMTP: {e}'}), 400
 
-    # Salva o resto das configurações
     session['column_mapping'] = data.get('column_mapping')
     session['email_template'] = data.get('email_template')
     session['timing_settings'] = data.get('timing_settings')
@@ -141,7 +135,6 @@ def save_settings():
 @ui_blueprint.route('/start-sending', methods=['POST'])
 def start_sending():
     try:
-        # Passa uma cópia do dicionário da sessão para o serviço
         email_service.start_sending_process(dict(session))
         return jsonify({'success': 'Processo de envio iniciado.'})
     except (ValueError, KeyError) as e:

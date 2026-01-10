@@ -33,7 +33,6 @@ def get_smtp_server_details(email):
 @ui_blueprint.route('/')
 def index():
     """Renderiza a página inicial."""
-    # A lógica de limpeza de sessão foi removida daqui para evitar a perda de credenciais SMTP.
     return render_template('index.html')
 
 @ui_blueprint.route('/status')
@@ -57,6 +56,7 @@ def test_connection():
             'server': server_addr, 'port': port, 'sender_name': sender_name
         }
         session.modified = True
+        print(f"[LOG] Credenciais salvas na sessão: {session['smtp_credentials']}")
         return jsonify({'success': 'Conexão SMTP bem-sucedida!'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -123,6 +123,7 @@ def save_settings():
 
 @ui_blueprint.route('/start-sending', methods=['POST'])
 def start_sending():
+    print(f"[LOG] Iniciando envio. Conteúdo da sessão: {dict(session)}")
     try:
         # Limpa o estado da campanha anterior ANTES de iniciar uma nova
         current_status = sending_state.get_status_dict()['status']

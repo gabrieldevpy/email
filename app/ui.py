@@ -32,19 +32,34 @@ def get_smtp_server_details(email):
 
 @ui_blueprint.route('/')
 def index():
-    """Renderiza a página inicial e limpa o estado de campanhas anteriores."""
-    current_status = sending_state.get_status_dict()['status']
-    if current_status not in ['RUNNING', 'PAUSED', 'STARTING']:
-        email_service.stop_sending()
-        checkpoint_manager.clear()
-        session.clear()
-        sending_state.__init__() # Garante um estado inicial limpo
+    """Renderiza a página inicial."""
+    # A lógica de limpeza de sessão foi removida daqui para evitar a perda de credenciais SMTP.
     return render_template('index.html')
 
 @ui_blueprint.route('/status')
 def status():
     """Fornece o estado atual da campanha para o front-end."""
     return jsonify(sending_state.get_status_dict())
+
+@ui_blueprint.route('/test-connection', methods=['POST'])
+def test_connection():
+    """Testa as credenciais SMTP e as salva na sessão."""
+    data = request.get_json() or {}
+    try:
+        email, password, sender_name = data.get('email'), data.get('password'), data.get('sender_name', '')
+        if not email or not password: raise ValueError("E-mail e senha são obrigatórios.")
+        server_addr, port = get_smtp_server_details(email)
+        with smtplib.SMTP(server_addr, port) as server:
+            server.starttls()
+            server.login(email, password)
+        session['smtp_credentials'] = {
+            'email': email, 'password': password, 
+            'server': server_addr, 'port': port, 'sender_name': sender_name
+        }
+        session.modified = True
+        return jsonify({'success': 'Conexão SMTP bem-sucedida!'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @ui_blueprint.route('/upload', methods=['POST'])
 def upload_spreadsheet():
@@ -97,36 +112,10 @@ def upload_attachments():
 def save_settings():
     """Salva todas as configurações da campanha na sessão."""
     data = request.get_json() or {}
-    
-    smtp_data = data.get('smtp_credentials', {})
-    email = smtp_data.get('email')
-    password = smtp_data.get('password')
-    sender_name = smtp_data.get('sender_name')
-
-    if not email or not password:
-        return jsonify({'error': 'As credenciais SMTP (e-mail e senha) são obrigatórias.'}), 400
-
-    try:
-        server_addr, port = get_smtp_server_details(email)
-        with smtplib.SMTP(server_addr, port) as server:
-            server.starttls()
-            server.login(email, password)
-        
-        session['smtp_credentials'] = {
-            'email': email,
-            'password': password,
-            'server': server_addr,
-            'port': port,
-            'sender_name': sender_name
-        }
-    except Exception as e:
-        return jsonify({'error': f'Falha na conexão SMTP: {e}'}), 400
-
     session['column_mapping'] = data.get('column_mapping')
     session['email_template'] = data.get('email_template')
     session['timing_settings'] = data.get('timing_settings')
     session['filter_settings'] = data.get('filter_settings')
-    
     session.modified = True
     return jsonify({'success': 'Configurações salvas com sucesso!'})
 
@@ -135,6 +124,13 @@ def save_settings():
 @ui_blueprint.route('/start-sending', methods=['POST'])
 def start_sending():
     try:
+        # Limpa o estado da campanha anterior ANTES de iniciar uma nova
+        current_status = sending_state.get_status_dict()['status']
+        if current_status not in ['RUNNING', 'PAUSED']:
+            email_service.stop_sending() # Para garantir que não haja processos antigos
+            checkpoint_manager.clear()
+            sending_state.__init__()
+
         email_service.start_sending_process(dict(session))
         return jsonify({'success': 'Processo de envio iniciado.'})
     except (ValueError, KeyError) as e:
@@ -153,4 +149,8 @@ def resume_sending():
 @ui_blueprint.route('/stop-sending', methods=['POST'])
 def stop_sending():
     email_service.stop_sending()
+    # Limpa a sessão e o estado APÓS parar a campanha
+    checkpoint_manager.clear()
+    session.clear()
+    sending_state.__init__()
     return jsonify({'success': 'Processo de envio interrompido.'})

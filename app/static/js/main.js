@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const senderNameInput = document.getElementById('sender-name');
     const smtpEmailInput = document.getElementById('smtp-email');
     const smtpPasswordInput = document.getElementById('smtp-password');
+    const testSmtpBtn = document.getElementById('test-smtp-btn');
     
     const spreadsheetUpload = document.getElementById('spreadsheet-upload');
     const spreadsheetFilename = document.getElementById('spreadsheet-filename');
@@ -51,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const initialVisibleFilters = 10;
     let statusInterval, nextSendInterval;
 
-    // --- FUNÇÕES DE POP-UP E API ---
+    // --- FUNÇÕES ESSENCIAIS RESTAURADAS ---
     const showPopup = (title, message, isError = false) => {
         const popup = document.getElementById('success-popup');
         document.getElementById('popup-title').textContent = title;
@@ -91,6 +92,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const safeApiCall = async (callback) => {
+        try { await callback(); } catch (error) { /* Erro já exibido pelo apiCall */ }
+    };
+
     // --- Lógica da UI e Event Listeners ---
 
     const renderFilterCheckboxes = (values) => {
@@ -108,33 +113,34 @@ document.addEventListener('DOMContentLoaded', () => {
         return checkboxDiv;
     };
 
-    spreadsheetUpload.addEventListener('change', async () => {
+    testSmtpBtn.addEventListener('click', () => safeApiCall(async () => {
+        const data = await apiCall('/test-connection', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: smtpEmailInput.value, password: smtpPasswordInput.value, sender_name: senderNameInput.value }) });
+        showPopup('Sucesso', data.success);
+    }));
+
+    spreadsheetUpload.addEventListener('change', () => safeApiCall(async () => {
         const file = spreadsheetUpload.files[0];
         if (!file) return;
         spreadsheetFilename.textContent = file.name;
         const formData = new FormData();
         formData.append('spreadsheet', file);
-        try {
-            const data = await apiCall('/upload', { method: 'POST', body: formData });
-            const columns = data.columns || [];
-            [emailColSelect, filterColumnSelect, subjectCol1Select, subjectCol2Select].forEach(select => {
-                select.innerHTML = '<option value="">-- Selecione --</option>';
-                columns.forEach(col => select.add(new Option(col, col)));
-            });
-            columnMappingArea.style.display = 'block';
-        } catch(e) { /* erro já tratado */}
-    });
+        const data = await apiCall('/upload', { method: 'POST', body: formData });
+        const columns = data.columns || [];
+        [emailColSelect, filterColumnSelect, subjectCol1Select, subjectCol2Select].forEach(select => {
+            select.innerHTML = '<option value="">-- Selecione --</option>';
+            columns.forEach(col => select.add(new Option(col, col)));
+        });
+        columnMappingArea.style.display = 'block';
+    }));
 
-    filterColumnSelect.addEventListener('change', async () => {
+    filterColumnSelect.addEventListener('change', () => safeApiCall(async () => {
         const selectedColumn = filterColumnSelect.value;
         filterValuesArea.style.display = selectedColumn ? 'block' : 'none';
         if (!selectedColumn) return;
-        try {
-            const data = await apiCall('/get-filter-values', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ column: selectedColumn }) });
-            allFilterValues = data.values || [];
-            renderFilterCheckboxes(allFilterValues);
-        } catch(e) { /* erro já tratado */}
-    });
+        const data = await apiCall('/get-filter-values', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ column: selectedColumn }) });
+        allFilterValues = data.values || [];
+        renderFilterCheckboxes(allFilterValues);
+    }));
     
     filterSearchInput.addEventListener('input', (e) => {
         const searchTerm = e.target.value.toLowerCase();
@@ -160,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
     resumeUpload.addEventListener('change', () => { resumeFilename.textContent = resumeUpload.files[0] ? resumeUpload.files[0].name : 'Nenhum'; });
     coverLetterUpload.addEventListener('change', () => { coverLetterFilename.textContent = coverLetterUpload.files[0] ? coverLetterUpload.files[0].name : 'Nenhum'; });
 
-    uploadAttachmentsBtn.addEventListener('click', async () => {
+    uploadAttachmentsBtn.addEventListener('click', () => safeApiCall(async () => {
         const formData = new FormData();
         if (resumeUpload.files[0]) formData.append('resume', resumeUpload.files[0]);
         if (coverLetterUpload.files[0]) formData.append('cover_letter', coverLetterUpload.files[0]);
@@ -170,23 +176,16 @@ document.addEventListener('DOMContentLoaded', () => {
             showPopup('Aviso', 'Nenhum anexo selecionado para processar.');
             return;
         }
-        try {
-            const data = await apiCall('/upload-attachments', { method: 'POST', body: formData });
-            showPopup('Sucesso', data.success);
-        } catch(e) { /* erro já tratado */}
-    });
+        const data = await apiCall('/upload-attachments', { method: 'POST', body: formData });
+        showPopup('Sucesso', data.success);
+    }));
 
-    saveSettingsBtn.addEventListener('click', async () => {
+    saveSettingsBtn.addEventListener('click', () => safeApiCall(async () => {
         const emailBodyInputs = emailBodyList.querySelectorAll('.email-body-input');
         const emailBodies = Array.from(emailBodyInputs).map(input => input.value).filter(Boolean);
         const checkedFilterValues = Array.from(filterCheckboxes.querySelectorAll('input:checked')).map(cb => cb.value);
         
         const settings = {
-            smtp_credentials: {
-                email: smtpEmailInput.value,
-                password: smtpPasswordInput.value,
-                sender_name: senderNameInput.value
-            },
             column_mapping: { email_col: emailColSelect.value },
             filter_settings: { column: filterColumnSelect.value, values: checkedFilterValues },
             email_template: {
@@ -197,28 +196,23 @@ document.addEventListener('DOMContentLoaded', () => {
             timing_settings: { min_interval: parseInt(minIntervalInput.value), max_interval: parseInt(maxIntervalInput.value) },
         };
         
-        try {
-            const data = await apiCall('/save-settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) });
-            showPopup('Configurações Salvas', data.success);
-        } catch(e) { /* erro já tratado */}
-    });
+        const data = await apiCall('/save-settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) });
+        showPopup('Configurações Salvas', data.success);
+    }));
 
-    // --- Ações de Controle ---
     const setupControlAction = (btn, action) => {
-        btn.addEventListener('click', async () => {
-            try {
-                const data = await apiCall(`/${action}-sending`, { method: 'POST' });
-                showPopup('Sucesso', data.success);
-                pollStatus(); // Reinicia o polling
-            } catch(e) { /* erro já tratado */}
-        });
+        btn.addEventListener('click', () => safeApiCall(async () => {
+            const data = await apiCall(`/${action}-sending`, { method: 'POST' });
+            showPopup('Sucesso', data.success);
+            pollStatus(); // Reinicia o polling imediatamente após a ação
+        }));
     };
     setupControlAction(startBtn, 'start');
     setupControlAction(pauseBtn, 'pause');
     setupControlAction(resumeBtn, 'resume');
     setupControlAction(stopBtn, 'stop');
 
-    // --- Polling de Status ---
+    // --- Polling e Lógica de Estado ---
     const updateUIwithState = (state) => {
         statusText.textContent = state.status;
         sentCount.textContent = state.sent;
@@ -230,7 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isRunning = state.status === 'RUNNING';
         const isPaused = state.status === 'PAUSED';
         const isStarting = state.status === 'STARTING';
-        const isIdle = ['IDLE', 'FINISHED', 'STOPPED', 'ERROR'].includes(state.status);
+        const isIdle = state.status === 'IDLE' || state.status === 'FINISHED' || state.status === 'STOPPED' || state.status === 'ERROR';
 
         startBtn.disabled = !isIdle;
         pauseBtn.disabled = !isRunning;
@@ -242,6 +236,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             nextSendContainer.style.display = 'none';
             if (nextSendInterval) clearInterval(nextSendInterval);
+        }
+        
+        if (isIdle && statusInterval) {
+            // Para o polling se a tarefa estiver concluída ou parada
+            // clearInterval(statusInterval);
         }
     };
 
@@ -267,22 +266,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (statusInterval) clearInterval(statusInterval);
         statusInterval = setInterval(async () => {
             try {
+                // Não usa safeApiCall para não mostrar pop-up em cada falha de polling
                 const response = await fetch('/status');
-                if (!response.ok) return; // Não mostra erro, apenas para de fazer polling
                 const state = await response.json();
                 updateUIwithState(state);
             } catch (error) {
+                // Silenciosamente para o polling em caso de erro de rede
                 if (statusInterval) clearInterval(statusInterval);
             }
         }, 1500);
     };
     
-    // --- Inicialização ---
-    (async () => {
-        try {
-            const initialState = await apiCall('/status');
-            updateUIwithState(initialState);
-            pollStatus();
-        } catch (e) { /* erro já tratado */ }
-    })();
+    safeApiCall(async () => {
+        const initialState = await apiCall('/status');
+        updateUIwithState(initialState);
+        pollStatus();
+    });
 });

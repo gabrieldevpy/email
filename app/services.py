@@ -11,7 +11,7 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 
-# --- Estado e Checkpoint (sem alterações) ---
+# --- Estado e Checkpoint ---
 class SendingState:
     def __init__(self):
         self.status = 'IDLE'
@@ -50,13 +50,28 @@ class CheckpointManager:
     def clear(self): 
         if os.path.exists(self.filepath): os.remove(self.filepath)
 
-
-# --- SERVIÇO DE E-MAIL (COM VALIDAÇÃO) ---
+# --- SERVIÇO DE E-MAIL ---
 class EmailSenderService:
     def __init__(self, state_manager, checkpoint_manager):
         self.state = state_manager
         self.checkpoint = checkpoint_manager
         self.thread = None
+
+    def _validate_config(self, config):
+        if not config.get('smtp_credentials'): raise ValueError("As credenciais SMTP (Passo 1) não foram testadas e salvas. Por favor, teste a conexão.")
+        if not config.get('filepath'): raise ValueError("A planilha de contatos (Passo 2) não foi enviada.")
+        
+        column_mapping = config.get('column_mapping')
+        if not column_mapping or not column_mapping.get('email_col'): 
+            raise ValueError("A coluna que contém os e-mails dos destinatários não foi selecionada no Passo 2.")
+
+        email_template = config.get('email_template')
+        if not email_template or not email_template.get('body') or all(not body.strip() for body in email_template['body']):
+            raise ValueError("Pelo menos um corpo de e-mail (Passo 3) deve ser preenchido.")
+
+        timing_settings = config.get('timing_settings')
+        if not timing_settings or timing_settings.get('min_interval') is None or timing_settings.get('max_interval') is None:
+             raise ValueError("Os intervalos de envio (Passo 4) não foram configurados corretamente.")
 
     def _clean_metadata(self, file_path):
         if not file_path or not os.path.exists(file_path): return None
@@ -80,20 +95,16 @@ class EmailSenderService:
     def _email_sending_loop(self, config):
         self.state.set_status('STARTING')
         try:
-            # --- VALIDAÇÃO DE CONFIGURAÇÃO ---
-            if not config.get('smtp_credentials'): raise ValueError("As credenciais SMTP (Passo 1) não foram salvas. Teste a conexão.")
-            if not config.get('filepath'): raise ValueError("A planilha (Passo 2) não foi enviada.")
-            if not config.get('column_mapping') or not config['column_mapping'].get('email_col'):
-                raise ValueError("A coluna de e-mail (Passo 2) não foi selecionada. Salve as configurações.")
-            if not config.get('email_template') or not config['email_template'].get('body'):
-                raise ValueError("O corpo do e-mail (Passo 3) está vazio. Salve as configurações.")
-
+            self._validate_config(config)
+            
             df = pd.read_excel(config['filepath']) if config['filepath'].endswith(('.xlsx', '.xls')) else pd.read_csv(config['filepath'])
             if config.get('filter_settings', {}).get('values'):
                 df = df[df[config['filter_settings']['column']].astype(str).isin(config['filter_settings']['values'])]
             
             contacts = df.to_dict('records')
             total_emails = len(contacts)
+            if total_emails == 0: raise ValueError("A sua planilha (ou o filtro aplicado) não resultou em nenhum contato para envio.")
+            
             start_index = self.checkpoint.load()
             self.state.set_status('RUNNING', sent=start_index, total=total_emails)
 
@@ -121,7 +132,7 @@ class EmailSenderService:
             if not self.state.stop_flag: self.state.set_status('FINISHED')
 
         except (KeyError, ValueError, Exception) as e:
-            self.state.set_status('ERROR', error=f"Falha na inicialização: {e}")
+            self.state.set_status('ERROR', error=f"{e}")
         finally:
             if self.state.status != 'ERROR' and not self.state.stop_flag: self.checkpoint.clear()
 

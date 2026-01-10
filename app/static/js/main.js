@@ -31,7 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const minIntervalInput = document.getElementById('min-interval');
     const maxIntervalInput = document.getElementById('max-interval');
-    const saveSettingsBtn = document.getElementById('save-settings-btn');
 
     const startBtn = document.getElementById('start-btn');
     const pauseBtn = document.getElementById('pause-btn');
@@ -52,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const initialVisibleFilters = 10;
     let statusInterval, nextSendInterval;
 
-    // --- FUNÇÕES ESSENCIAIS RESTAURADAS ---
+    // --- FUNÇÕES ESSENCIAIS ---
     const showPopup = (title, message, isError = false) => {
         const popup = document.getElementById('success-popup');
         document.getElementById('popup-title').textContent = title;
@@ -180,7 +179,8 @@ document.addEventListener('DOMContentLoaded', () => {
         showPopup('Sucesso', data.success);
     }));
 
-    saveSettingsBtn.addEventListener('click', () => safeApiCall(async () => {
+    // --- Ações de Controle ---
+    startBtn.addEventListener('click', () => safeApiCall(async () => {
         const emailBodyInputs = emailBodyList.querySelectorAll('.email-body-input');
         const emailBodies = Array.from(emailBodyInputs).map(input => input.value).filter(Boolean);
         const checkedFilterValues = Array.from(filterCheckboxes.querySelectorAll('input:checked')).map(cb => cb.value);
@@ -195,19 +195,25 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             timing_settings: { min_interval: parseInt(minIntervalInput.value), max_interval: parseInt(maxIntervalInput.value) },
         };
-        
-        const data = await apiCall('/save-settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) });
-        showPopup('Configurações Salvas', data.success);
+
+        const data = await apiCall('/start-sending', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(settings) 
+        });
+
+        showPopup('Sucesso', data.success);
+        pollStatus();
     }));
 
     const setupControlAction = (btn, action) => {
         btn.addEventListener('click', () => safeApiCall(async () => {
             const data = await apiCall(`/${action}-sending`, { method: 'POST' });
             showPopup('Sucesso', data.success);
-            pollStatus(); // Reinicia o polling imediatamente após a ação
+            pollStatus();
         }));
     };
-    setupControlAction(startBtn, 'start');
+    
     setupControlAction(pauseBtn, 'pause');
     setupControlAction(resumeBtn, 'resume');
     setupControlAction(stopBtn, 'stop');
@@ -224,9 +230,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const isRunning = state.status === 'RUNNING';
         const isPaused = state.status === 'PAUSED';
         const isStarting = state.status === 'STARTING';
-        const isIdle = state.status === 'IDLE' || state.status === 'FINISHED' || state.status === 'STOPPED' || state.status === 'ERROR';
+        const isIdle = ['IDLE', 'FINISHED', 'STOPPED', 'ERROR'].includes(state.status);
 
-        startBtn.disabled = !isIdle;
+        startBtn.disabled = isRunning || isPaused || isStarting;
         pauseBtn.disabled = !isRunning;
         resumeBtn.disabled = !isPaused;
         stopBtn.disabled = isIdle || isStarting;
@@ -236,11 +242,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             nextSendContainer.style.display = 'none';
             if (nextSendInterval) clearInterval(nextSendInterval);
-        }
-        
-        if (isIdle && statusInterval) {
-            // Para o polling se a tarefa estiver concluída ou parada
-            // clearInterval(statusInterval);
         }
     };
 
@@ -266,20 +267,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (statusInterval) clearInterval(statusInterval);
         statusInterval = setInterval(async () => {
             try {
-                // Não usa safeApiCall para não mostrar pop-up em cada falha de polling
                 const response = await fetch('/status');
+                if (!response.ok) {
+                    if(statusInterval) clearInterval(statusInterval);
+                    return;
+                } 
                 const state = await response.json();
                 updateUIwithState(state);
             } catch (error) {
-                // Silenciosamente para o polling em caso de erro de rede
                 if (statusInterval) clearInterval(statusInterval);
             }
         }, 1500);
     };
     
-    safeApiCall(async () => {
-        const initialState = await apiCall('/status');
-        updateUIwithState(initialState);
-        pollStatus();
-    });
+    // --- Inicialização ---
+    (async () => {
+        try {
+            const initialState = await apiCall('/status');
+            updateUIwithState(initialState);
+            pollStatus();
+        } catch (e) { /* erro já tratado */ }
+    })();
 });

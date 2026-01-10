@@ -108,22 +108,16 @@ def upload_attachments():
     session.modified = True
     return jsonify({'success': 'Anexos processados com sucesso!'})
 
-@ui_blueprint.route('/save-settings', methods=['POST'])
-def save_settings():
-    """Salva todas as configurações da campanha na sessão."""
-    data = request.get_json() or {}
-    session['column_mapping'] = data.get('column_mapping')
-    session['email_template'] = data.get('email_template')
-    session['timing_settings'] = data.get('timing_settings')
-    session['filter_settings'] = data.get('filter_settings')
-    session.modified = True
-    return jsonify({'success': 'Configurações salvas com sucesso!'})
-
 # --- Rotas de Controle da Campanha ---
 
 @ui_blueprint.route('/start-sending', methods=['POST'])
 def start_sending():
+    settings = request.get_json() or {}
+    # Junta as configurações da UI com as que já estão na sessão (como credenciais e anexos)
+    session.update(settings)
+    session.modified = True
     print(f"[LOG] Iniciando envio. Conteúdo da sessão: {dict(session)}")
+
     try:
         # Limpa o estado da campanha anterior ANTES de iniciar uma nova
         current_status = sending_state.get_status_dict()['status']
